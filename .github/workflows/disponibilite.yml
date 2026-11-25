@@ -1,0 +1,33 @@
+name: Disponibilité des sites
+
+# Surveillance gratuite, sans compte externe : toutes les heures, GitHub vérifie que les
+# sites répondent depuis l'extérieur. Un échec déclenche l'e-mail de GitHub « workflow run
+# failed » au compte qui a programmé ce contrôle.
+on:
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+
+# Lecture seule du dépôt : aucun job n'écrit (ni commentaire, ni release, ni push).
+permissions:
+  contents: read
+
+jobs:
+  sites:
+    name: lexasafe.fr, app, api, rdemesmay.fr
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Contrôle (3 essais par site)
+        run: |
+          failed=0
+          for url in https://lexasafe.fr/ https://app.lexasafe.fr/login https://api.lexasafe.fr/health https://rdemesmay.fr/; do
+            ok=0
+            for attempt in 1 2 3; do
+              code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 "$url" || echo 000)
+              if [ "$code" = "200" ]; then ok=1; break; fi
+              sleep 20
+            done
+            if [ "$ok" = 1 ]; then echo "OK   $url"; else echo "::error::$url injoignable (dernier code $code)"; failed=1; fi
+          done
+          exit $failed
